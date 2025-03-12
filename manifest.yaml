@@ -1,0 +1,20 @@
+# Zeno project configuration
+name: "my_project"
+version: "0.1.0"
+output:
+  # Output directory for generated C files and binaries
+  dir: "./build"
+  # Binary name (defaults to project name if not specified)
+  binary: "my_project"
+source:
+  # Main source file
+  main: "src/main.zeno"
+  # Include directories
+  include:
+    - "src"
+    - "lib"
+compiler:
+  # C compiler to use
+  cc: "gcc"
+  # Compiler flags
+  flags: "-Wall -Wextra -O2"

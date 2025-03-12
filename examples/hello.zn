@@ -1,0 +1,10 @@
+// Simple hello world example in Zeno
+
+import "stdio.h";
+
+// Main function
+fn main(): int {
+  let message: string = "Hello, world!";
+  printf("%s\n", message);
+  return 0;
+}

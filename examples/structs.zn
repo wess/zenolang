@@ -1,0 +1,53 @@
+// Struct composition example in Zeno
+
+import "stdio.h";
+
+// Base struct
+struct Entity {
+  id: string,
+  name: string
+}
+
+// Timestamps mixin
+struct Timestamps {
+  created_at: int,
+  updated_at: int
+}
+
+// User struct with composition
+struct User with Entity, Timestamps {
+  email: string,
+  active: bool
+}
+
+// Function that works with a composed struct
+fn print_user_details(user: User): void {
+  printf("User ID: %s\n", user.id);
+  printf("Name: %s\n", user.name);
+  printf("Email: %s\n", user.email);
+  printf("Created: %d\n", user.created_at);
+  
+  match user.active {
+    true => printf("Status: Active\n");
+    false => printf("Status: Inactive\n");
+  }
+}
+
+// Main function
+fn main(): int {
+  // Create a timestamp
+  let now: int = 1678234511;
+  
+  // Create a user with spread operator
+  let user: User = {
+    ...{id: "user-123", name: "Alice"},
+    ...{created_at: now, updated_at: now},
+    email: "alice@example.com",
+    active: true
+  };
+  
+  // Print user details
+  user |> print_user_details;
+  
+  return 0;
+}
