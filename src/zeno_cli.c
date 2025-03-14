@@ -6,107 +6,99 @@
 #include <sys/wait.h>
 #include "zeno_cli.h"
 
-// Function prototypes
-static void print_usage(const char* program_name);
-
 // For parsing YAML
 #define MAX_LINE_LENGTH 1024
 #define MAX_INCLUDE_DIRS 32
 
-// Parse command line arguments
-bool parse_arguments(int argc, char** argv, ZenoOptions* options) {
-    // Initialize default options
-    options->verbose = false;
-    options->manifest_path = "manifest.yaml";
-    options->input_file = NULL;
-    options->output_file = NULL;
-    options->run_mode = false;
-    options->compile_mode = false;
-    
-    // No arguments provided
-    if (argc < 2) {
-        print_usage(argv[0]);
-        return false;
-    }
-    
-    // Check if first argument is a command
-    if (strcmp(argv[1], "run") == 0) {
-        options->run_mode = true;
-    } else if (strcmp(argv[1], "compile") == 0) {
-        options->compile_mode = true;
-    } else {
-        fprintf(stderr, "Unknown command: %s\n", argv[1]);
-        print_usage(argv[0]);
-        return false;
-    }
-    
-    // Parse remaining arguments
-    for (int i = 2; i < argc; i++) {
-        if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--verbose") == 0) {
-            options->verbose = true;
-        } else if (strcmp(argv[i], "-m") == 0 || strcmp(argv[i], "--manifest") == 0) {
-            if (i + 1 < argc) {
-                options->manifest_path = argv[++i];
-            } else {
-                fprintf(stderr, "Missing manifest path\n");
-                return false;
-            }
-        } else if (strcmp(argv[i], "-o") == 0 || strcmp(argv[i], "--output") == 0) {
-            if (i + 1 < argc) {
-                options->output_file = argv[++i];
-            } else {
-                fprintf(stderr, "Missing output file\n");
-                return false;
-            }
-        } else if (argv[i][0] != '-') {
-            // Assume it's the input file
-            options->input_file = argv[i];
-        } else {
-            fprintf(stderr, "Unknown option: %s\n", argv[i]);
-            print_usage(argv[0]);
-            return false;
+// Function to create a default manifest.yaml file
+int init_zeno_project(const char* dir_path, bool verbose) {
+    char manifest_path[1024];
+    if (dir_path) {
+        snprintf(manifest_path, sizeof(manifest_path), "%s/manifest.yaml", dir_path);
+        
+        // Create directory if it doesn't exist
+        struct stat st = {0};
+        if (stat(dir_path, &st) == -1) {
+            #ifdef _WIN32
+            mkdir(dir_path);
+            #else
+            mkdir(dir_path, 0755);
+            #endif
         }
+    } else {
+        snprintf(manifest_path, sizeof(manifest_path), "manifest.yaml");
     }
     
-    // Validate options
-    if (!options->input_file && !options->run_mode && !options->compile_mode) {
-        fprintf(stderr, "No input file specified\n");
-        print_usage(argv[0]);
-        return false;
+    // Check if manifest already exists
+    FILE* check = fopen(manifest_path, "r");
+    if (check) {
+        fclose(check);
+        fprintf(stderr, "Error: manifest.yaml already exists at %s\n", manifest_path);
+        return 1;
     }
     
-    return true;
-}
-
-// Print usage information
-static void print_usage(const char* program_name) {
-    printf("Usage: %s COMMAND [OPTIONS] [file]\n\n", program_name);
-    printf("Commands:\n");
-    printf("  run           Transpile and run Zeno code\n");
-    printf("  compile       Transpile and compile Zeno code to a binary\n\n");
-    printf("Options:\n");
-    printf("  -v, --verbose       Enable verbose output\n");
-    printf("  -m, --manifest PATH Specify manifest file (default: manifest.yaml)\n");
-    printf("  -o, --output FILE   Specify output file\n");
+    // Create and write the default manifest
+    FILE* file = fopen(manifest_path, "w");
+    if (!file) {
+        fprintf(stderr, "Error: Could not create manifest.yaml at %s\n", manifest_path);
+        return 1;
+    }
+    
+    // Write default manifest content
+    fprintf(file, "# Zeno project configuration\n");
+    fprintf(file, "name: \"zeno_project\"\n");
+    fprintf(file, "version: \"0.1.0\"\n");
+    fprintf(file, "output:\n");
+    fprintf(file, "  # Output directory for generated C files and binaries\n");
+    fprintf(file, "  dir: \"./build\"\n");
+    fprintf(file, "  # Binary name (defaults to project name if not specified)\n");
+    fprintf(file, "  binary: \"zeno_project\"\n");
+    fprintf(file, "source:\n");
+    fprintf(file, "  # Main source file\n");
+    fprintf(file, "  main: \"src/main.zeno\"\n");
+    fprintf(file, "  # Include directories\n");
+    fprintf(file, "  include:\n");
+    fprintf(file, "    - \"src\"\n");
+    fprintf(file, "    - \"lib\"\n");
+    fprintf(file, "compiler:\n");
+    fprintf(file, "  # C compiler to use\n");
+    fprintf(file, "  cc: \"gcc\"\n");
+    fprintf(file, "  # Compiler flags\n");
+    fprintf(file, "  flags: \"-Wall -Wextra -O2\"\n");
+    
+    fclose(file);
+    
+    if (verbose) {
+        printf("Created manifest.yaml at %s\n", manifest_path);
+    }
+    
+    return 0;
 }
 
 // Simple YAML parser for manifest
-ZenoManifest* load_manifest(const char* path) {
+ZenoManifest* load_manifest(const char* path, bool allow_missing) {
     FILE* file = fopen(path, "r");
     if (!file) {
-        // If manifest file doesn't exist, return default values
-        ZenoManifest* manifest = (ZenoManifest*)malloc(sizeof(ZenoManifest));
-        manifest->name = strdup("zeno_project");
-        manifest->version = strdup("0.1.0");
-        manifest->output.dir = strdup("./build");
-        manifest->output.binary = strdup("zeno_project");
-        manifest->source.main = NULL;
-        manifest->source.include = (char**)malloc(sizeof(char*));
-        manifest->source.include[0] = strdup(".");
-        manifest->source.include_count = 1;
-        manifest->compiler.cc = strdup("gcc");
-        manifest->compiler.flags = strdup("-Wall -Wextra");
-        return manifest;
+        if (allow_missing) {
+            // If manifest file doesn't exist but it's allowed, return default values
+            ZenoManifest* manifest = (ZenoManifest*)malloc(sizeof(ZenoManifest));
+            manifest->name = strdup("zeno_project");
+            manifest->version = strdup("0.1.0");
+            manifest->output.dir = strdup("./build");
+            manifest->output.binary = strdup("zeno_project");
+            manifest->source.main = NULL;
+            manifest->source.include = (char**)malloc(sizeof(char*));
+            manifest->source.include[0] = strdup(".");
+            manifest->source.include_count = 1;
+            manifest->compiler.cc = strdup("gcc");
+            manifest->compiler.flags = strdup("-Wall -Wextra");
+            return manifest;
+        } else {
+            // If manifest file doesn't exist and it's not allowed, return NULL
+            fprintf(stderr, "Error: Manifest file not found at %s\n", path);
+            fprintf(stderr, "Run 'zeno init' to create a default manifest\n");
+            return NULL;
+        }
     }
     
     ZenoManifest* manifest = (ZenoManifest*)malloc(sizeof(ZenoManifest));

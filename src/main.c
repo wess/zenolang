@@ -90,7 +90,8 @@ void print_usage(const char* program_name) {
     printf("Commands:\n");
     printf("  transpile <input> [output]  Convert Zeno code to C\n");
     printf("  run [OPTIONS] [file]        Transpile, compile, and run Zeno code\n");
-    printf("  compile [OPTIONS] [file]    Transpile and compile Zeno code to a binary\n\n");
+    printf("  compile [OPTIONS] [file]    Transpile and compile Zeno code to a binary\n");
+    printf("  init [directory]            Create a default manifest.yaml file\n\n");
     printf("Options:\n");
     printf("  -v, --verbose       Enable verbose output\n");
     printf("  -m, --manifest PATH Specify manifest file (default: manifest.yaml)\n");
@@ -118,6 +119,11 @@ int main(int argc, char** argv) {
         
         return transpile_file(input_file, output_file, true);
     } 
+    else if (strcmp(argv[1], "init") == 0) {
+        // Init mode - create a default manifest.yaml
+        const char* dir_path = (argc > 2) ? argv[2] : NULL;
+        return init_zeno_project(dir_path, true);
+    }
     else if (strcmp(argv[1], "run") == 0 || strcmp(argv[1], "compile") == 0) {
         // CLI mode (run or compile)
         ZenoOptions options;
@@ -156,8 +162,11 @@ int main(int argc, char** argv) {
             }
         }
 
-        // Load manifest
-        ZenoManifest* manifest = load_manifest(options.manifest_path);
+        // Load manifest - don't allow missing manifest for run/compile commands
+        ZenoManifest* manifest = load_manifest(options.manifest_path, false);
+        if (!manifest) {
+            return 1; // Error message already printed by load_manifest
+        }
         
         if (options.verbose) {
             printf("Zeno Compiler v0.1.0\n");

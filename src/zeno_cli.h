@@ -36,10 +36,11 @@ typedef struct {
 } ZenoOptions;
 
 // Function declarations
-ZenoManifest* load_manifest(const char* path);
+ZenoManifest* load_manifest(const char* path, bool allow_missing);
 void free_manifest(ZenoManifest* manifest);
 int run_zeno_file(ZenoOptions* options, ZenoManifest* manifest);
 int compile_zeno_file(ZenoOptions* options, ZenoManifest* manifest);
+int init_zeno_project(const char* dir_path, bool verbose);
 
 // Transpile function (defined in main.c)
 int transpile_file(const char* input_path, const char* output_path, bool verbose);
