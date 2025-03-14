@@ -196,6 +196,11 @@ expression
     | struct_instantiation { $$ = $1; }
     | expression PIPE expression { $$ = create_pipe_node($1, $3); }
     | '(' expression ')' { $$ = $2; }
+    | '(' parameter_list ')' ':' type ARROW expression { 
+        AST_Node* return_stmt = create_return_node($7);
+        AST_Node_List* body = create_node_list(return_stmt);
+        $$ = create_anonymous_function_node($2, $5, create_compound_statement_node(body));
+    }
     | expression '+' expression { $$ = create_binary_op_node(OP_ADD, $1, $3); }
     | expression '-' expression { $$ = create_binary_op_node(OP_SUB, $1, $3); }
     | expression '*' expression { $$ = create_binary_op_node(OP_MUL, $1, $3); }

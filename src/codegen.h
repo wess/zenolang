@@ -12,6 +12,8 @@ typedef struct {
     int indentation;        // Current indentation level
     int temp_var_count;     // Counter for temporary variables
     int label_count;        // Counter for labels
+    char* buffer;           // Temporary buffer for string operations
+    size_t buffer_size;     // Size of the temporary buffer
 } CodeGenContext;
 
 // Initialize code generation context

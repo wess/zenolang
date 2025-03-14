@@ -29,7 +29,8 @@ typedef enum {
     NODE_SPREAD,
     NODE_PIPE,
     NODE_BINDING_PATTERN,
-    NODE_WILDCARD
+    NODE_WILDCARD,
+    NODE_ANONYMOUS_FUNCTION
 } NodeType;
 
 // Variable types
@@ -255,6 +256,13 @@ struct AST_Node {
             char* name;
             TypeInfo* type;
         } binding;
+        
+        // Anonymous function
+        struct {
+            AST_Node_List* parameters;
+            TypeInfo* return_type;
+            AST_Node* body;
+        } anon_function;
     } data;
 };
 
@@ -287,6 +295,7 @@ AST_Node* create_pipe_node(AST_Node* left, AST_Node* right);
 AST_Node* create_parameter_node(char* name, TypeInfo* type);
 AST_Node* create_binding_pattern(char* name, TypeInfo* type);
 AST_Node* create_wildcard_node();
+AST_Node* create_anonymous_function_node(AST_Node_List* parameters, TypeInfo* return_type, AST_Node* body);
 
 // Helper functions
 AST_Node_List* create_node_list(AST_Node* node);

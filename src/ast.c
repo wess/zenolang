@@ -233,6 +233,15 @@ AST_Node* create_wildcard_node() {
     return allocate_node(NODE_WILDCARD);
 }
 
+// Create anonymous function node
+AST_Node* create_anonymous_function_node(AST_Node_List* parameters, TypeInfo* return_type, AST_Node* body) {
+    AST_Node* node = allocate_node(NODE_ANONYMOUS_FUNCTION);
+    node->data.anon_function.parameters = parameters;
+    node->data.anon_function.return_type = return_type;
+    node->data.anon_function.body = body;
+    return node;
+}
+
 // Create node list
 AST_Node_List* create_node_list(AST_Node* node) {
     AST_Node_List* list = (AST_Node_List*)malloc(sizeof(AST_Node_List));
@@ -574,6 +583,20 @@ void free_ast(AST_Node* node) {
             break;
         case NODE_WILDCARD:
             // Nothing to free
+            break;
+        case NODE_ANONYMOUS_FUNCTION:
+            if (node->data.anon_function.parameters) {
+                free_ast(node->data.anon_function.parameters->head);
+                free(node->data.anon_function.parameters);
+            }
+            if (node->data.anon_function.return_type) {
+                if (node->data.anon_function.return_type->generic_type)
+                    free(node->data.anon_function.return_type->generic_type);
+                if (node->data.anon_function.return_type->name)
+                    free(node->data.anon_function.return_type->name);
+                free(node->data.anon_function.return_type);
+            }
+            if (node->data.anon_function.body) free_ast(node->data.anon_function.body);
             break;
         case NODE_EXPRESSION:
             // Generic expression, no special handling needed
