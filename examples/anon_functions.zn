@@ -1,0 +1,13 @@
+// Minimal Anonymous Function Example
+
+import "stdio.h";
+
+fn main(): int {
+  // Simple anonymous function
+  let square = (x: int): int => x * x;
+  
+  // Use the function
+  printf("Square of 5: %d\n", square(5));
+  
+  return 0;
+}

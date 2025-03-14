@@ -68,7 +68,7 @@ $(OBJ_DIR)/parser.tab.o: $(GEN_PARSER_C)
 
 # Compile lexer
 $(OBJ_DIR)/lex.yy.o: $(GEN_LEXER_C)
-	$(CC) $(CFLAGS) $(INCLUDE_FLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) $(INCLUDE_FLAGS) -Wno-sign-compare -c -o $@ $<
 
 # Compile main
 $(OBJ_DIR)/main.o: $(SRC_DIR)/main.c $(SRC_DIR)/ast.h $(SRC_DIR)/symtab.h $(SRC_DIR)/codegen.h $(SRC_DIR)/zeno_cli.h
