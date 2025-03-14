@@ -12,6 +12,7 @@ A transpiler for Zeno, a C-based language with Elixir-inspired syntax and featur
 - Function guard clauses with `where`
 - Pipe operator (`|>`) for function chaining
 - Immutable variables with `const`
+- Anonymous functions (lambda expressions)
 
 ## Building the Transpiler
 
@@ -125,6 +126,12 @@ fn add(a: int, b: int): int {
 
 // Arrow function for expressions
 fn multiply(a: int, b: int): int => a * b;
+
+// Anonymous function (lambda)
+let square = (x: int): int => x * x;
+
+// Using an anonymous function
+let result = square(5); // Returns 25
 
 // Function with guard clause
 fn factorial(n: int): int where n > 0 {

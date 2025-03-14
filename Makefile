@@ -1,6 +1,6 @@
 # Compiler flags
 CC = gcc
-CFLAGS = -Wall -Wextra -g
+CFLAGS = -Wall -Wextra -g -Wunused-variable -Wunused-parameter
 INCLUDE_FLAGS = -I$(SRC_DIR)
 
 # Flex and Bison
