@@ -17,4 +17,4 @@ compiler:
   # C compiler to use
   cc: "gcc"
   # Compiler flags
-  flags: "-Wall -Wextra -O2"
+  flags: "-Wall -Wextra -O2 -Wno-unused-parameter -Wno-unused-variable"

@@ -91,7 +91,7 @@ ZenoManifest* load_manifest(const char* path, bool allow_missing) {
             manifest->source.include[0] = strdup(".");
             manifest->source.include_count = 1;
             manifest->compiler.cc = strdup("gcc");
-            manifest->compiler.flags = strdup("-Wall -Wextra");
+            manifest->compiler.flags = strdup("-Wall -Wextra -Wunused-parameter -Wunused-variable");
             return manifest;
         } else {
             // If manifest file doesn't exist and it's not allowed, return NULL
@@ -110,7 +110,7 @@ ZenoManifest* load_manifest(const char* path, bool allow_missing) {
     manifest->source.include = (char**)malloc(MAX_INCLUDE_DIRS * sizeof(char*));
     manifest->source.include_count = 0;
     manifest->compiler.cc = strdup("gcc");
-    manifest->compiler.flags = strdup("-Wall -Wextra");
+    manifest->compiler.flags = strdup("-Wall -Wextra -Wunused-parameter -Wunused-variable");
     
     char line[MAX_LINE_LENGTH];
     int section = 0; // 0 = root, 1 = output, 2 = source, 3 = compiler
