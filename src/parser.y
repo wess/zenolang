@@ -30,7 +30,8 @@ AST_Node* root = NULL;  // Root of the AST
 
 %token FN LET CONST STRUCT WITH WHERE IF ELSE MATCH RETURN IMPORT TYPE
 %token EQ NEQ GE LE AND OR CONCAT ARROW PIPE SPREAD
-%token <str> IDENTIFIER TYPE_NAME
+%token ASYNC AWAIT THEN CATCH FINALLY
+%token <str> IDENTIFIER TYPE_NAME PROMISE_TYPE
 %token <str> INT_LITERAL FLOAT_LITERAL STRING_LITERAL BOOL_LITERAL
 
 %type <node> program declaration function_declaration variable_declaration struct_declaration
@@ -110,6 +111,19 @@ function_declaration
         AST_Node* return_stmt = create_return_node($9);
         AST_Node_List* body = create_node_list(return_stmt);
         $$ = create_function_node($2, $4, $7, NULL, create_compound_statement_node(body));
+    }
+    | ASYNC FN function_name '(' parameter_list ')' ':' type guard_clause compound_statement {
+        // For async functions, we set a flag in the AST node
+        AST_Node* func_node = create_function_node($3, $5, $8, $9, $10);
+        func_node->data.function.is_async = 1; // Mark as async
+        $$ = func_node;
+    }
+    | ASYNC FN function_name '(' parameter_list ')' ':' type ARROW expression ';' {
+        AST_Node* return_stmt = create_return_node($10);
+        AST_Node_List* body = create_node_list(return_stmt);
+        AST_Node* func_node = create_function_node($3, $5, $8, NULL, create_compound_statement_node(body));
+        func_node->data.function.is_async = 1; // Mark as async
+        $$ = func_node;
     }
     ;
 
@@ -200,6 +214,45 @@ expression
         AST_Node* return_stmt = create_return_node($7);
         AST_Node_List* body = create_node_list(return_stmt);
         $$ = create_anonymous_function_node($2, $5, create_compound_statement_node(body));
+    }
+    | '(' IDENTIFIER ')' ARROW expression { 
+        // Arrow function with single parameter, no type
+        AST_Node_List* params = create_node_list(create_parameter_node($2, create_type_info("any", NULL)));
+        AST_Node* return_stmt = create_return_node($5);
+        AST_Node_List* body = create_node_list(return_stmt);
+        $$ = create_anonymous_function_node(params, create_type_info("any", NULL), create_compound_statement_node(body));
+    }
+    | '(' ')' ARROW expression {
+        // Arrow function with no parameters - create an empty parameter list, not NULL
+        AST_Node_List* params = create_node_list(NULL);
+        AST_Node* return_stmt = create_return_node($4);
+        AST_Node_List* body = create_node_list(return_stmt);
+        $$ = create_anonymous_function_node(params, create_type_info("any", NULL), create_compound_statement_node(body));
+    }
+    | IDENTIFIER ARROW expression { 
+        // Arrow function with single parameter, no parentheses, no type
+        AST_Node_List* params = create_node_list(create_parameter_node($1, create_type_info("any", NULL)));
+        AST_Node* return_stmt = create_return_node($3);
+        AST_Node_List* body = create_node_list(return_stmt);
+        $$ = create_anonymous_function_node(params, create_type_info("any", NULL), create_compound_statement_node(body));
+    }
+    | AWAIT expression { $$ = create_await_expression_node($2); }
+    | PROMISE_TYPE '.' IDENTIFIER '(' argument_list ')' {
+        if (strcmp($3, "all") == 0) {
+            $$ = create_promise_all_node($5);
+        } else {
+            yyerror("Invalid Promise static method");
+            YYERROR;
+        }
+    }
+    | expression '.' THEN '(' expression ')' {
+        $$ = create_promise_then_node($1, $5);
+    }
+    | expression '.' CATCH '(' expression ')' {
+        $$ = create_promise_catch_node($1, $5);
+    }
+    | expression '.' FINALLY '(' expression ')' {
+        $$ = create_promise_finally_node($1, $5);
     }
     | expression '+' expression { $$ = create_binary_op_node(OP_ADD, $1, $3); }
     | expression '-' expression { $$ = create_binary_op_node(OP_SUB, $1, $3); }

@@ -30,7 +30,12 @@ typedef enum {
     NODE_PIPE,
     NODE_BINDING_PATTERN,
     NODE_WILDCARD,
-    NODE_ANONYMOUS_FUNCTION
+    NODE_ANONYMOUS_FUNCTION,
+    NODE_PROMISE_THEN,
+    NODE_PROMISE_CATCH,
+    NODE_PROMISE_FINALLY,
+    NODE_PROMISE_ALL,
+    NODE_AWAIT_EXPRESSION
 } NodeType;
 
 // Variable types
@@ -143,6 +148,7 @@ struct AST_Node {
             TypeInfo* return_type;
             GuardClause* guard;
             AST_Node* body;
+            int is_async; // Flag to mark as async function
         } function;
 
         // Variable declaration
@@ -263,6 +269,34 @@ struct AST_Node {
             TypeInfo* return_type;
             AST_Node* body;
         } anon_function;
+
+        // Promise then
+        struct {
+            AST_Node* promise;
+            AST_Node* handler;  // Anonymous function for then handler
+        } promise_then;
+
+        // Promise catch
+        struct {
+            AST_Node* promise;
+            AST_Node* handler;  // Anonymous function for catch handler
+        } promise_catch;
+
+        // Promise finally
+        struct {
+            AST_Node* promise;
+            AST_Node* handler;  // Anonymous function for finally handler
+        } promise_finally;
+
+        // Promise.all
+        struct {
+            ExpressionList* promises;  // List of promises
+        } promise_all;
+
+        // Await expression
+        struct {
+            AST_Node* promise;
+        } await_expr;
     } data;
 };
 
@@ -296,6 +330,13 @@ AST_Node* create_parameter_node(char* name, TypeInfo* type);
 AST_Node* create_binding_pattern(char* name, TypeInfo* type);
 AST_Node* create_wildcard_node();
 AST_Node* create_anonymous_function_node(AST_Node_List* parameters, TypeInfo* return_type, AST_Node* body);
+
+// Promise-related node creation
+AST_Node* create_promise_then_node(AST_Node* promise, AST_Node* handler);
+AST_Node* create_promise_catch_node(AST_Node* promise, AST_Node* handler);
+AST_Node* create_promise_finally_node(AST_Node* promise, AST_Node* handler);
+AST_Node* create_promise_all_node(ExpressionList* promises);
+AST_Node* create_await_expression_node(AST_Node* promise);
 
 // Helper functions
 AST_Node_List* create_node_list(AST_Node* node);

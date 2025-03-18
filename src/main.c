@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include "ast.h"
 #include "symtab.h"
-#include "codegen.h"
+#include "codegen/codegen.h"
 #include "zeno_cli.h"
 
 // External variables from Flex/Bison

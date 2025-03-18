@@ -39,6 +39,12 @@ void yyerror(const char* s);
 "return"                  { return RETURN; }
 "import"                  { return IMPORT; }
 "type"                    { return TYPE; }
+"async"                   { return ASYNC; }
+"await"                   { return AWAIT; }
+"then"                    { return THEN; }
+"catch"                   { return CATCH; }
+"finally"                 { return FINALLY; }
+"Promise"                 { yylval.str = strdup(yytext); return PROMISE_TYPE; }
 
 "int"                     { yylval.str = strdup(yytext); return TYPE_NAME; }
 "float"                   { yylval.str = strdup(yytext); return TYPE_NAME; }

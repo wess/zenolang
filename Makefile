@@ -17,7 +17,13 @@ GEN_DIR = $(BUILD_DIR)/gen
 # Objects
 OBJS = $(OBJ_DIR)/ast.o \
        $(OBJ_DIR)/symtab.o \
-       $(OBJ_DIR)/codegen.o \
+       $(OBJ_DIR)/codegen/context.o \
+       $(OBJ_DIR)/codegen/utils.o \
+       $(OBJ_DIR)/codegen/expression.o \
+       $(OBJ_DIR)/codegen/statement.o \
+       $(OBJ_DIR)/codegen/declaration.o \
+       $(OBJ_DIR)/codegen/anon_function.o \
+       $(OBJ_DIR)/codegen/codegen.o \
        $(OBJ_DIR)/lex.yy.o \
        $(OBJ_DIR)/parser.tab.o \
        $(OBJ_DIR)/main.o \
@@ -36,7 +42,7 @@ all: dirs $(TARGET)
 
 # Create directories
 dirs:
-	@mkdir -p $(OBJ_DIR) $(BIN_DIR) $(GEN_DIR)
+	@mkdir -p $(OBJ_DIR) $(BIN_DIR) $(GEN_DIR) $(OBJ_DIR)/codegen
 
 # Main target
 $(TARGET): $(OBJS)
@@ -50,8 +56,32 @@ $(OBJ_DIR)/ast.o: $(SRC_DIR)/ast.c $(SRC_DIR)/ast.h
 $(OBJ_DIR)/symtab.o: $(SRC_DIR)/symtab.c $(SRC_DIR)/symtab.h
 	$(CC) $(CFLAGS) $(INCLUDE_FLAGS) -c -o $@ $<
 
-# Compile Code Generation implementation
-$(OBJ_DIR)/codegen.o: $(SRC_DIR)/codegen.c $(SRC_DIR)/codegen.h $(SRC_DIR)/ast.h $(SRC_DIR)/symtab.h
+# Compile Codegen Module: Context
+$(OBJ_DIR)/codegen/context.o: $(SRC_DIR)/codegen/context.c $(SRC_DIR)/codegen/context.h
+	$(CC) $(CFLAGS) $(INCLUDE_FLAGS) -c -o $@ $<
+
+# Compile Codegen Module: Utils
+$(OBJ_DIR)/codegen/utils.o: $(SRC_DIR)/codegen/utils.c $(SRC_DIR)/codegen/utils.h
+	$(CC) $(CFLAGS) $(INCLUDE_FLAGS) -c -o $@ $<
+
+# Compile Codegen Module: Expression
+$(OBJ_DIR)/codegen/expression.o: $(SRC_DIR)/codegen/expression.c $(SRC_DIR)/codegen/expression.h
+	$(CC) $(CFLAGS) $(INCLUDE_FLAGS) -c -o $@ $<
+
+# Compile Codegen Module: Statement
+$(OBJ_DIR)/codegen/statement.o: $(SRC_DIR)/codegen/statement.c $(SRC_DIR)/codegen/statement.h
+	$(CC) $(CFLAGS) $(INCLUDE_FLAGS) -c -o $@ $<
+
+# Compile Codegen Module: Declaration
+$(OBJ_DIR)/codegen/declaration.o: $(SRC_DIR)/codegen/declaration.c $(SRC_DIR)/codegen/declaration.h
+	$(CC) $(CFLAGS) $(INCLUDE_FLAGS) -c -o $@ $<
+
+# Compile Codegen Module: Anonymous Functions
+$(OBJ_DIR)/codegen/anon_function.o: $(SRC_DIR)/codegen/anon_function.c $(SRC_DIR)/codegen/anon_function.h
+	$(CC) $(CFLAGS) $(INCLUDE_FLAGS) -c -o $@ $<
+
+# Compile Codegen Module: Main Codegen
+$(OBJ_DIR)/codegen/codegen.o: $(SRC_DIR)/codegen/codegen.c $(SRC_DIR)/codegen/codegen.h
 	$(CC) $(CFLAGS) $(INCLUDE_FLAGS) -c -o $@ $<
 
 # Generate parser with Bison
@@ -71,7 +101,7 @@ $(OBJ_DIR)/lex.yy.o: $(GEN_LEXER_C)
 	$(CC) $(CFLAGS) $(INCLUDE_FLAGS) -Wno-sign-compare -c -o $@ $<
 
 # Compile main
-$(OBJ_DIR)/main.o: $(SRC_DIR)/main.c $(SRC_DIR)/ast.h $(SRC_DIR)/symtab.h $(SRC_DIR)/codegen.h $(SRC_DIR)/zeno_cli.h
+$(OBJ_DIR)/main.o: $(SRC_DIR)/main.c $(SRC_DIR)/ast.h $(SRC_DIR)/symtab.h $(SRC_DIR)/codegen/codegen.h $(SRC_DIR)/zeno_cli.h
 	$(CC) $(CFLAGS) $(INCLUDE_FLAGS) -c -o $@ $<
 
 # Compile CLI tool components

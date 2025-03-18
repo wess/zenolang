@@ -1,0 +1,42 @@
+// Simple demonstration of async/await and promises in Zeno
+
+// Simulates fetching data from a server
+async fn fetchData(id: string): string {
+    // In a real implementation, this would make a network request
+    // and return the result as a promise
+    return "Data for ID: " + id;
+}
+
+// Process the fetched data
+fn processData(data: string): string {
+    return "Processed: " + data;
+}
+
+// Handle any errors that might occur
+fn handleError(error: string): string {
+    return "Error occurred: " + error;
+}
+
+
+// Cleanup function
+fn cleanup(): void {
+    // Perform cleanup operations
+}
+
+// Main function demonstrating the use of promises
+fn main(): int {
+    // Using await syntax to directly get the result
+    let directResult = await fetchData("123");
+    
+    // Using promise chaining with then, catch, and finally
+    fetchData("456")
+        .then((data) => processData(data))
+        .catch((error) => handleError(error))
+        .finally(() => cleanup());
+        
+    // Using Promise.all to wait for multiple promises
+    let results = await Promise.all([
+        fetchData("789"),
+        fetchData("abc")
+    ]);
+}
