@@ -5,6 +5,7 @@
 #include "ast.h"
 #include "symtab.h"
 #include "codegen/codegen.h"
+#include "llvm_codegen/llvm_codegen.h"
 #include "zeno_cli.h"
 
 // External variables from Flex/Bison
@@ -12,83 +13,11 @@ extern FILE* yyin;
 extern int yyparse();
 extern AST_Node* root;
 
-// Transpile a Zeno file to C
-int transpile_file(const char* input_path, const char* output_path, bool verbose) {
-    FILE* input_file = NULL;
-    FILE* output_file = stdout;
-    
-    // Open input file
-    input_file = fopen(input_path, "r");
-    if (!input_file) {
-        fprintf(stderr, "Error: Cannot open input file '%s'\n", input_path);
-        return 1;
-    }
-    
-    // Open output file if specified
-    if (output_path) {
-        output_file = fopen(output_path, "w");
-        if (!output_file) {
-            fprintf(stderr, "Error: Cannot open output file '%s'\n", output_path);
-            fclose(input_file);
-            return 1;
-        }
-    }
-    
-    // Set input file for Flex
-    yyin = input_file;
-    
-    // Parse input file
-    if (verbose) {
-        printf("Parsing Zeno input file...\n");
-    }
-    
-    if (yyparse() != 0) {
-        fprintf(stderr, "Error: Parsing failed\n");
-        fclose(input_file);
-        if (output_file != stdout) {
-            fclose(output_file);
-        }
-        return 1;
-    }
-    
-    // Check if AST was built successfully
-    if (!root) {
-        fprintf(stderr, "Error: AST generation failed\n");
-        fclose(input_file);
-        if (output_file != stdout) {
-            fclose(output_file);
-        }
-        return 1;
-    }
-    
-    // Generate code
-    if (verbose) {
-        printf("Generating C code...\n");
-    }
-    
-    CodeGenContext* ctx = init_codegen(output_file);
-    generate_code(ctx, root);
-    cleanup_codegen(ctx);
-    
-    // Clean up
-    free_ast(root);
-    fclose(input_file);
-    if (output_file != stdout) {
-        fclose(output_file);
-    }
-    
-    if (verbose) {
-        printf("Zeno transpilation completed successfully!\n");
-    }
-    
-    return 0;
-}
-
 void print_usage(const char* program_name) {
     printf("Zeno Language v0.1.0 - Usage:\n\n");
     printf("  %s COMMAND [OPTIONS] [FILE]\n\n", program_name);
     printf("Commands:\n");
-    printf("  transpile <input> [output]  Convert Zeno code to C\n");
+    printf("  transpile <input> [output]  Convert Zeno code to C or LLVM IR\n");
     printf("  run [OPTIONS] [file]        Transpile, compile, and run Zeno code\n");
     printf("  compile [OPTIONS] [file]    Transpile and compile Zeno code to a binary\n");
     printf("  init [directory]            Create a default manifest.yaml file\n\n");
@@ -96,6 +25,7 @@ void print_usage(const char* program_name) {
     printf("  -v, --verbose       Enable verbose output\n");
     printf("  -m, --manifest PATH Specify manifest file (default: manifest.yaml)\n");
     printf("  -o, --output FILE   Specify output file\n");
+    printf("  --llvm              Use LLVM backend instead of C\n");
 }
 
 int main(int argc, char** argv) {
@@ -116,8 +46,19 @@ int main(int argc, char** argv) {
         
         const char* input_file = argv[2];
         const char* output_file = (argc > 3) ? argv[3] : NULL;
+        bool use_llvm = false;
+        bool verbose = false;
         
-        return transpile_file(input_file, output_file, true);
+        // Check for LLVM flag
+        for (int i = 3; i < argc; i++) {
+            if (strcmp(argv[i], "--llvm") == 0) {
+                use_llvm = true;
+            } else if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--verbose") == 0) {
+                verbose = true;
+            }
+        }
+        
+        return transpile_file(input_file, output_file, verbose, use_llvm);
     } 
     else if (strcmp(argv[1], "init") == 0) {
         // Init mode - create a default manifest.yaml
@@ -133,6 +74,7 @@ int main(int argc, char** argv) {
         options.output_file = NULL;
         options.run_mode = (strcmp(argv[1], "run") == 0);
         options.compile_mode = (strcmp(argv[1], "compile") == 0);
+        options.use_llvm = false; // Default to C backend
         
         // Parse remaining arguments
         for (int i = 2; i < argc; i++) {
@@ -152,6 +94,8 @@ int main(int argc, char** argv) {
                     fprintf(stderr, "Missing output file\n");
                     return 1;
                 }
+            } else if (strcmp(argv[i], "--llvm") == 0) {
+                options.use_llvm = true;
             } else if (argv[i][0] != '-') {
                 // Assume it's the input file
                 options.input_file = argv[i];
@@ -173,8 +117,12 @@ int main(int argc, char** argv) {
             printf("Project: %s (%s)\n", manifest->name, manifest->version);
             printf("Output directory: %s\n", manifest->output.dir);
             printf("Binary name: %s\n", manifest->output.binary);
-            printf("Compiler: %s\n", manifest->compiler.cc);
-            printf("Compiler flags: %s\n", manifest->compiler.flags);
+            printf("Using: %s backend\n", options.use_llvm ? "LLVM" : "C");
+            
+            if (!options.use_llvm) {
+                printf("Compiler: %s\n", manifest->compiler.cc);
+                printf("Compiler flags: %s\n", manifest->compiler.flags);
+            }
             
             if (manifest->source.main) {
                 printf("Main source file: %s\n", manifest->source.main);

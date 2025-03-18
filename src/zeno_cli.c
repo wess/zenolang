@@ -5,6 +5,108 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include "zeno_cli.h"
+#include "llvm_codegen/llvm_codegen.h"
+#include "codegen/codegen.h"
+
+// External variables from Flex/Bison
+extern FILE* yyin;
+extern int yyparse();
+extern AST_Node* root;
+
+// Transpile a Zeno source file to C or LLVM
+int transpile_file(const char* input_path, const char* output_path, bool verbose, bool use_llvm) {
+    if (!input_path) {
+        fprintf(stderr, "Error: No input file specified\n");
+        return 1;
+    }
+    
+    if (!output_path) {
+        // Default output path: input file with .c or .bc extension
+        char default_output[1024];
+        char *ext = use_llvm ? ".bc" : ".c";
+        snprintf(default_output, sizeof(default_output), "%s%s", input_path, ext);
+        output_path = default_output;
+    }
+    
+    if (verbose) {
+        printf("Transpiling %s to %s%s\n", input_path, output_path, use_llvm ? " (using LLVM)" : "");
+    }
+    
+    // Open input file
+    yyin = fopen(input_path, "r");
+    if (!yyin) {
+        fprintf(stderr, "Error: Could not open input file %s\n", input_path);
+        return 1;
+    }
+    
+    // Parse the input file
+    int parse_result = yyparse();
+    fclose(yyin);
+    
+    if (parse_result != 0) {
+        fprintf(stderr, "Error: Parsing failed with code %d\n", parse_result);
+        return 1;
+    }
+    
+    if (!root) {
+        fprintf(stderr, "Error: No AST root node generated\n");
+        return 1;
+    }
+    
+    if (use_llvm) {
+        // Use LLVM backend
+        LLVMGenContext* ctx = init_llvm_codegen("zeno_module", verbose);
+        if (!ctx) {
+            fprintf(stderr, "Error: Failed to initialize LLVM context\n");
+            return 1;
+        }
+        
+        // Generate LLVM IR
+        llvm_generate_code(ctx, root);
+        
+        // Write LLVM output (either IR or compiled)
+        int result;
+        if (strstr(output_path, ".bc") || strstr(output_path, ".ll")) {
+            // Write LLVM bitcode or IR
+            result = write_llvm_module(ctx, output_path);
+        } else {
+            // Compile to executable
+            result = llvm_compile_to_executable(ctx, output_path);
+        }
+        
+        // Clean up
+        cleanup_llvm_codegen(ctx);
+        return result;
+    } else {
+        // Use C backend
+        FILE* output_file = fopen(output_path, "w");
+        if (!output_file) {
+            fprintf(stderr, "Error: Could not open output file %s\n", output_path);
+            return 1;
+        }
+        
+        // Create codegen context
+        CodeGenContext* ctx = init_codegen(output_file);
+        if (!ctx) {
+            fclose(output_file);
+            fprintf(stderr, "Error: Failed to initialize codegen context\n");
+            return 1;
+        }
+        
+        // Generate C code
+        generate_code(ctx, root);
+        
+        // Clean up
+        cleanup_codegen(ctx);
+        fclose(output_file);
+        
+        if (verbose) {
+            printf("Successfully transpiled to %s\n", output_path);
+        }
+        
+        return 0;
+    }
+}
 
 // For parsing YAML
 #define MAX_LINE_LENGTH 1024
@@ -280,58 +382,85 @@ int run_zeno_file(ZenoOptions* options, ZenoManifest* manifest) {
     // Create output directory if it doesn't exist
     ensure_dir_exists(manifest->output.dir);
     
-    // Generate paths
-    char c_output_path[1024];
-    snprintf(c_output_path, sizeof(c_output_path), 
-             "%s/%s.c", manifest->output.dir, 
-             options->output_file ? options->output_file : "temp");
+    char output_path[1024];
+    int result;
     
-    char temp_exe_path[1024];
-    snprintf(temp_exe_path, sizeof(temp_exe_path), 
-             "%s/%s", manifest->output.dir, 
-             options->output_file ? options->output_file : "temp");
-    
-    // Transpile the Zeno file to C
-    if (options->verbose) {
-        printf("Transpiling %s to %s\n", input_file, c_output_path);
-    }
-    
-    int ret = transpile_file(input_file, c_output_path, options->verbose);
-    if (ret != 0) {
-        fprintf(stderr, "Transpilation failed with code %d\n", ret);
-        return ret;
-    }
-    
-    // Compile the C file to executable
-    if (options->verbose) {
-        printf("Compiling %s to %s\n", c_output_path, temp_exe_path);
-    }
-    
-    char compile_cmd[2048];
-    snprintf(compile_cmd, sizeof(compile_cmd), 
-             "%s %s -o %s %s", 
-             manifest->compiler.cc, c_output_path, temp_exe_path, manifest->compiler.flags);
-    
-    ret = system(compile_cmd);
-    if (ret != 0) {
-        fprintf(stderr, "Compilation failed with code %d\n", ret);
-        return ret;
+    if (options->use_llvm) {
+        // Using LLVM backend, we compile directly to executable
+        snprintf(output_path, sizeof(output_path), 
+                 "%s/%s", manifest->output.dir, 
+                 options->output_file ? options->output_file : "temp");
+                 
+        if (options->verbose) {
+            printf("Compiling %s to %s using LLVM\n", input_file, output_path);
+        }
+        
+        // Compile with LLVM
+        result = transpile_file(input_file, output_path, options->verbose, true);
+        if (result != 0) {
+            fprintf(stderr, "LLVM compilation failed with code %d\n", result);
+            return result;
+        }
+    } else {
+        // Using C backend, we need to transpile to C and then compile
+        char c_output_path[1024];
+        snprintf(c_output_path, sizeof(c_output_path), 
+                 "%s/%s.c", manifest->output.dir, 
+                 options->output_file ? options->output_file : "temp");
+                 
+        snprintf(output_path, sizeof(output_path), 
+                 "%s/%s", manifest->output.dir,
+                 options->output_file ? options->output_file : "temp");
+        
+        // Transpile Zeno to C
+        if (options->verbose) {
+            printf("Transpiling %s to %s\n", input_file, c_output_path);
+        }
+        
+        result = transpile_file(input_file, c_output_path, options->verbose, false);
+        if (result != 0) {
+            fprintf(stderr, "Transpilation failed with code %d\n", result);
+            return result;
+        }
+        
+        // Compile C to executable
+        if (options->verbose) {
+            printf("Compiling %s to %s\n", c_output_path, output_path);
+        }
+        
+        char compile_cmd[2048];
+        snprintf(compile_cmd, sizeof(compile_cmd), 
+                 "%s %s -o %s %s", 
+                 manifest->compiler.cc, c_output_path, output_path, manifest->compiler.flags);
+        
+        result = system(compile_cmd);
+        if (result != 0) {
+            fprintf(stderr, "C compilation failed with code %d\n", result);
+            return result;
+        }
     }
     
     // Run the executable
     if (options->verbose) {
-        printf("Running %s\n", temp_exe_path);
+        printf("Running %s\n", output_path);
     }
     
-    ret = system(temp_exe_path);
+    result = system(output_path);
     
     // Clean up temporary files if not in verbose mode
     if (!options->verbose) {
-        remove(c_output_path);
-        remove(temp_exe_path);
+        remove(output_path);
+        
+        if (!options->use_llvm) {
+            char c_output_path[1024];
+            snprintf(c_output_path, sizeof(c_output_path), 
+                    "%s/%s.c", manifest->output.dir, 
+                    options->output_file ? options->output_file : "temp");
+            remove(c_output_path);
+        }
     }
     
-    return ret;
+    return result;
 }
 
 // Compile Zeno file to a binary
@@ -350,46 +479,62 @@ int compile_zeno_file(ZenoOptions* options, ZenoManifest* manifest) {
     // Create output directory if it doesn't exist
     ensure_dir_exists(manifest->output.dir);
     
-    // Generate paths
-    char c_output_path[1024];
-    snprintf(c_output_path, sizeof(c_output_path), 
-             "%s/%s.c", manifest->output.dir, 
-             options->output_file ? options->output_file : manifest->name);
+    char output_path[1024];
+    int result;
     
-    char exe_path[1024];
-    snprintf(exe_path, sizeof(exe_path), 
+    snprintf(output_path, sizeof(output_path), 
              "%s/%s", manifest->output.dir, 
              options->output_file ? options->output_file : manifest->output.binary);
     
-    // Transpile the Zeno file to C
+    if (options->use_llvm) {
+        // Using LLVM backend, we compile directly to executable
+        if (options->verbose) {
+            printf("Compiling %s to %s using LLVM\n", input_file, output_path);
+        }
+        
+        // Compile with LLVM
+        result = transpile_file(input_file, output_path, options->verbose, true);
+        if (result != 0) {
+            fprintf(stderr, "LLVM compilation failed with code %d\n", result);
+            return result;
+        }
+    } else {
+        // Using C backend, we need to transpile to C and then compile
+        char c_output_path[1024];
+        snprintf(c_output_path, sizeof(c_output_path), 
+                 "%s/%s.c", manifest->output.dir, 
+                 options->output_file ? options->output_file : manifest->name);
+        
+        // Transpile Zeno to C
+        if (options->verbose) {
+            printf("Transpiling %s to %s\n", input_file, c_output_path);
+        }
+        
+        result = transpile_file(input_file, c_output_path, options->verbose, false);
+        if (result != 0) {
+            fprintf(stderr, "Transpilation failed with code %d\n", result);
+            return result;
+        }
+        
+        // Compile C to executable
+        if (options->verbose) {
+            printf("Compiling %s to %s\n", c_output_path, output_path);
+        }
+        
+        char compile_cmd[2048];
+        snprintf(compile_cmd, sizeof(compile_cmd), 
+                 "%s %s -o %s %s", 
+                 manifest->compiler.cc, c_output_path, output_path, manifest->compiler.flags);
+        
+        result = system(compile_cmd);
+        if (result != 0) {
+            fprintf(stderr, "C compilation failed with code %d\n", result);
+            return result;
+        }
+    }
+    
     if (options->verbose) {
-        printf("Transpiling %s to %s\n", input_file, c_output_path);
-    }
-    
-    int ret = transpile_file(input_file, c_output_path, options->verbose);
-    if (ret != 0) {
-        fprintf(stderr, "Transpilation failed with code %d\n", ret);
-        return ret;
-    }
-    
-    // Compile the C file to executable
-    if (options->verbose) {
-        printf("Compiling %s to %s\n", c_output_path, exe_path);
-    }
-    
-    char compile_cmd[2048];
-    snprintf(compile_cmd, sizeof(compile_cmd), 
-             "%s %s -o %s %s", 
-             manifest->compiler.cc, c_output_path, exe_path, manifest->compiler.flags);
-    
-    ret = system(compile_cmd);
-    if (ret != 0) {
-        fprintf(stderr, "Compilation failed with code %d\n", ret);
-        return ret;
-    }
-    
-    if (options->verbose) {
-        printf("Successfully compiled %s\n", exe_path);
+        printf("Successfully compiled %s\n", output_path);
     }
     
     return 0;
