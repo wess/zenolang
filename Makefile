@@ -27,7 +27,8 @@ OBJS = $(OBJ_DIR)/ast.o \
        $(OBJ_DIR)/lex.yy.o \
        $(OBJ_DIR)/parser.tab.o \
        $(OBJ_DIR)/main.o \
-       $(OBJ_DIR)/zeno_cli.o
+       $(OBJ_DIR)/zeno_cli.o \
+       $(OBJ_DIR)/socket.o
 
 # Generated sources
 GEN_PARSER_C = $(GEN_DIR)/parser.tab.c
@@ -106,6 +107,10 @@ $(OBJ_DIR)/main.o: $(SRC_DIR)/main.c $(SRC_DIR)/ast.h $(SRC_DIR)/symtab.h $(SRC_
 
 # Compile CLI tool components
 $(OBJ_DIR)/zeno_cli.o: $(SRC_DIR)/zeno_cli.c $(SRC_DIR)/zeno_cli.h
+	$(CC) $(CFLAGS) $(INCLUDE_FLAGS) -c -o $@ $<
+
+# Compile Socket wrapper
+$(OBJ_DIR)/socket.o: $(SRC_DIR)/socket.c $(SRC_DIR)/socket.h
 	$(CC) $(CFLAGS) $(INCLUDE_FLAGS) -c -o $@ $<
 
 # Clean up
