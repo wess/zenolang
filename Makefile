@@ -69,7 +69,8 @@ OBJS = $(OBJ_DIR)/ast.o \
        $(OBJ_DIR)/parser.tab.o \
        $(OBJ_DIR)/main.o \
        $(OBJ_DIR)/zeno_cli.o \
-       $(OBJ_DIR)/socket.o
+       $(OBJ_DIR)/socket.o \
+       $(OBJ_DIR)/error_reporter.o
 
 # Generated sources
 GEN_PARSER_C = $(GEN_DIR)/parser.tab.c
@@ -160,6 +161,9 @@ $(OBJ_DIR)/zeno_cli.o: $(SRC_DIR)/zeno_cli.c $(SRC_DIR)/zeno_cli.h
 
 # Compile Socket wrapper
 $(OBJ_DIR)/socket.o: $(SRC_DIR)/socket.c $(SRC_DIR)/socket.h
+	$(CC) $(CFLAGS) $(INCLUDE_FLAGS) -c -o $@ $<
+
+$(OBJ_DIR)/error_reporter.o: $(SRC_DIR)/error_reporter.c $(SRC_DIR)/error_reporter.h
 	$(CC) $(CFLAGS) $(INCLUDE_FLAGS) -c -o $@ $<
 
 # Clean up

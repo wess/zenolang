@@ -133,4 +133,6 @@ socket_result_t socket_close(socket_t *socket);
  */
 const char *socket_get_error_string(socket_result_t result);
 
+socket_result_t socket_async_connect(socket_t *socket, const char* hostname, int port, int timeout_ms);
+
 #endif /* ZENO_SOCKET_H */

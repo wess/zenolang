@@ -10,6 +10,7 @@
 #include <netdb.h>
 #include <string.h>
 #include <unistd.h>
+#include "error_reporter.h"
 
 /**
  * Create a success result
@@ -26,6 +27,7 @@ static socket_result_t socket_success(void) {
  * Create an error result
  */
 static socket_result_t socket_error(const char *error_msg) {
+    ZENO_LOG_ERROR(error_msg);
     return (socket_result_t){
         .success = false,
         .error_msg = error_msg,
@@ -255,6 +257,44 @@ socket_result_t socket_close(socket_t *sock) {
     sock->is_connected = false;
     sock->is_server = false;
     return socket_success();
+}
+
+socket_result_t socket_async_connect(socket_t *sock, const char* hostname, int port, int timeout_ms) {
+    socket_result_t res = socket_set_nonblocking(sock, true);
+    if (!res.success) return res;
+    
+    res = socket_connect(sock, hostname, port);
+    if (res.success) {
+        return res;
+    }
+    if (errno != EINPROGRESS) {
+        return res;
+    }
+    
+    fd_set writefds;
+    FD_ZERO(&writefds);
+    FD_SET(sock->fd, &writefds);
+    
+    struct timeval tv;
+    tv.tv_sec = timeout_ms / 1000;
+    tv.tv_usec = (timeout_ms % 1000) * 1000;
+    
+    int sel = select(sock->fd + 1, NULL, &writefds, NULL, &tv);
+    if (sel > 0 && FD_ISSET(sock->fd, &writefds)) {
+        int err;
+        socklen_t len = sizeof(err);
+        getsockopt(sock->fd, SOL_SOCKET, SO_ERROR, &err, &len);
+        if (err == 0) {
+            sock->is_connected = true;
+            return socket_success();
+        } else {
+            errno = err;
+            return socket_error("Asynchronous connect failed");
+        }
+    } else if (sel == 0) {
+        return socket_error("Asynchronous connect timed out");
+    }
+    return socket_error("Select error during asynchronous connect");
 }
 
 const char *socket_get_error_string(socket_result_t result) {
