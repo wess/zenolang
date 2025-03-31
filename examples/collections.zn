@@ -1,0 +1,19 @@
+// Main function
+fn main(): int {
+  let x: array<int> = [1, 2, 3, 4, 5];
+  let y: map<string, int> = {"one": 1, "two": 2, "three": 3};
+
+  for(i: int in x) {
+    print(i);
+  }
+
+  foreach(k, v in y) {
+    print(k + ": " + v);
+  }
+
+  for(i: int in 0..5) {
+    print(i);
+  }
+
+  return 0;
+}
