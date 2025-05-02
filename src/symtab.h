@@ -1,6 +1,8 @@
 #ifndef SYMTAB_H
 #define SYMTAB_H
 
+#include "ast.h" // Include ast.h for TypeInfo
+
 // Symbol types
 typedef enum {
     SYMBOL_VARIABLE,
@@ -13,6 +15,7 @@ typedef enum {
 typedef struct SymbolEntry {
     char* name;
     SymbolType type;
+    TypeInfo* type_info; // Added to store detailed type information
     struct SymbolEntry* next;
 } SymbolEntry;
 
@@ -37,7 +40,7 @@ void enter_scope(SymbolTable* table);
 void leave_scope(SymbolTable* table);
 
 // Add symbol to current scope
-void add_symbol(SymbolTable* table, char* name, SymbolType type);
+void add_symbol(SymbolTable* table, char* name, SymbolType type, TypeInfo* type_info); // Added type_info parameter
 
 // Look up symbol in all accessible scopes
 SymbolEntry* lookup_symbol(SymbolTable* table, char* name);

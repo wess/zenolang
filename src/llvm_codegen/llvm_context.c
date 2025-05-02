@@ -64,9 +64,13 @@ LLVMTypeRef llvm_get_type(LLVMGenContext* ctx, TypeInfo* type) {
         // For arrays, we need to create a pointer to the inner type
         LLVMTypeRef inner_type = llvm_get_type(ctx, type->generic_type);
         return LLVMPointerType(inner_type, 0);
+    } else if (strcmp(type->name, "map") == 0) {
+        // Represent map as an opaque pointer (i8*) for now
+        // TODO: Define a proper runtime struct type for maps
+        return LLVMPointerType(LLVMInt8Type(), 0);
     } else {
-        // For custom types, use opaque struct type
-        // In a real implementation, we'd look up the struct type
+        // For custom types (structs), use opaque pointer type for now
+        // TODO: Look up or create named struct types
         return LLVMPointerType(LLVMInt8Type(), 0);
     }
 }

@@ -1,0 +1,40 @@
+import "stdio.h";
+
+fn main(): int {
+    printf("--- While Loop ---\n");
+    let i: int = 0;
+    while (i < 3) {
+        printf("while loop iteration: %d\n", i);
+        i = i + 1;
+    }
+
+    printf("\n--- C-style For Loop ---\n");
+    for (let j: int = 0; j < 3; j = j + 1) {
+        printf("C-style for loop iteration: %d\n", j);
+    }
+
+    // Note: Range-based for loop syntax might need verification based on implementation
+    // Assuming '..' is inclusive start, exclusive end as common in many languages
+    printf("\n--- Range-based For Loop ---\n");
+    for k in 0..3 {
+        printf("Range-based for loop iteration: %d\n", k);
+    }
+
+    printf("\n--- Array Iteration For Loop ---\n");
+    let fruits: string[] = ["apple", "banana", "cherry"];
+    for fruit in fruits {
+        // Assuming string interpolation or direct printing works, otherwise use printf
+        // printf("Fruit: %s\n", fruit); // Using printf for certainty
+        printf("Fruit: %s\n", fruit);
+    }
+
+    printf("\n--- Map/Hash Iteration For Loop ---\n");
+    // Note: Map iteration syntax and functionality might depend on implementation details
+    const scores: map<string, int> = {"Alice": 90, "Bob": 85, "Charlie": 95};
+    // Assuming this syntax is supported for map iteration
+    for {key, value} in scores {
+         printf("Score for %s: %d\n", key, value);
+    }
+
+    return 0;
+}

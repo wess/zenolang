@@ -28,16 +28,19 @@ AST_Node* root = NULL;  // Root of the AST
     MatchCase_List* match_case_list;
 }
 
-%token FN LET CONST STRUCT WITH WHERE IF ELSE MATCH RETURN IMPORT TYPE
-%token EQ NEQ GE LE AND OR CONCAT ARROW PIPE SPREAD
+%token FN LET CONST STRUCT WITH WHERE IF ELSE MATCH RETURN IMPORT TYPE WHILE
+%token EQ NEQ GE LE AND OR CONCAT ARROW PIPE SPREAD RANGE
 %token ASYNC AWAIT THEN CATCH FINALLY
+%token FOR IN PRINT /* Removed FOREACH */
 %token <str> IDENTIFIER TYPE_NAME PROMISE_TYPE
 %token <str> INT_LITERAL FLOAT_LITERAL STRING_LITERAL BOOL_LITERAL
 
-%type <node> program declaration function_declaration variable_declaration struct_declaration
-%type <node> type_declaration statement expression function_call
-%type <node> if_statement match_statement return_statement literal struct_instantiation
+%type <node> program declaration function_declaration variable_declaration_body struct_declaration /* variable_declaration type removed */
+%type <node> type_declaration statement expression function_call simple_statement control_statement return_statement_body /* Added categories */
+%type <node> if_statement match_statement /* return_statement removed */ literal struct_instantiation
 %type <node> compound_statement import_declaration struct_init_field
+%type <node> c_style_for_statement for_initializer expression_opt for_statement foreach_statement range_expression map_literal map_entry while_statement
+%type <node_list> map_entries /* Changed from expr_list to node_list */
 %type <node_list> declarations statements parameter_list struct_composition_list struct_init_list
 %type <type_info> type type_with_generics
 %type <str> function_name
@@ -47,6 +50,25 @@ AST_Node* root = NULL;  // Root of the AST
 %type <guard> guard_clause
 %type <match_case_list> match_cases
 %type <match_case> match_case
+
+// Precedence and Associativity Rules (Lowest to Highest)
+%right '=' // Assignment
+%left OR // Logical OR
+%left AND // Logical AND
+%left EQ NEQ // Equality
+%left '<' '>' LE GE // Comparison
+%left '+' '-' CONCAT // Addition, Subtraction, Concatenation
+%left '*' '/' '%' // Multiplication, Division, Modulo
+%right '!' // Logical NOT (Unary)
+%right UMINUS // Unary minus (defined below)
+%left '.' // Member access
+%left '(' ')' '[' ']' // Function call, array access (high precedence)
+%left PIPE // Pipe operator
+%left ARROW // Arrow function / Match case arrow
+%nonassoc IF // Non-associative IF to prevent dangling else
+%nonassoc ELSE // Non-associative ELSE
+%nonassoc WHILE // Added precedence for WHILE back
+%nonassoc FOR   // Added precedence for FOR
 
 %start program
 
@@ -63,7 +85,7 @@ declarations
 
 declaration
     : function_declaration { $$ = $1; }
-    | variable_declaration { $$ = $1; }
+    | variable_declaration_body ';' { $$ = $1; } /* Use body + semicolon */
     | struct_declaration { $$ = $1; }
     | type_declaration { $$ = $1; }
     | import_declaration { $$ = $1; }
@@ -77,12 +99,7 @@ type_declaration
     : TYPE IDENTIFIER '=' type ';' { $$ = create_type_declaration_node($2, $4); }
     ;
 
-variable_declaration
-    : LET IDENTIFIER '=' expression ';' { $$ = create_variable_node(VAR_LET, $2, NULL, $4); }
-    | LET IDENTIFIER ':' type '=' expression ';' { $$ = create_variable_node(VAR_LET, $2, $4, $6); }
-    | CONST IDENTIFIER '=' expression ';' { $$ = create_variable_node(VAR_CONST, $2, NULL, $4); }
-    | CONST IDENTIFIER ':' type '=' expression ';' { $$ = create_variable_node(VAR_CONST, $2, $4, $6); }
-    ;
+/* variable_declaration rule definition removed */
 
 struct_declaration
     : STRUCT IDENTIFIER '{' struct_fields '}' { $$ = create_struct_node($2, NULL, $4); }
@@ -154,6 +171,17 @@ type
 type_with_generics
     : TYPE_NAME '<' type '>' { $$ = create_type_info($1, $3); }
     | IDENTIFIER '<' type '>' { $$ = create_type_info($1, $3); }
+    | TYPE_NAME '<' type ',' type '>' {
+        // Check if the type name is "map"
+        if (strcmp($1, "map") == 0) {
+            $$ = create_map_type_info($3, $5); // Specific function for map types
+        } else {
+            char err_msg[100];
+            snprintf(err_msg, sizeof(err_msg), "Type '%s' does not support two generic arguments", $1);
+            yyerror(err_msg);
+            YYERROR; // Trigger parser error recovery
+        }
+    }
     ;
 
 compound_statement
@@ -166,17 +194,55 @@ statements
     ;
 
 statement
-    : variable_declaration { $$ = $1; }
-    | expression ';' { $$ = $1; }
-    | if_statement { $$ = $1; }
-    | match_statement { $$ = $1; }
-    | return_statement { $$ = $1; }
-    | compound_statement { $$ = $1; }
+    : simple_statement    { $$ = $1; }
+    | control_statement   { $$ = $1; }
+    ;
+
+/* Statements that must end with a semicolon */
+simple_statement
+    : variable_declaration_body ';' { $$ = $1; } /* Use body + semicolon */
+    | return_statement_body ';' { $$ = $1; }
+    | expression ';'       { $$ = $1; }
+    ;
+
+/* Control flow and block statements */
+control_statement
+    : if_statement          { $$ = $1; }
+    | while_statement       { $$ = $1; }
+    | c_style_for_statement { $$ = $1; }
+    | for_statement         { $$ = $1; } /* For range/array */
+    | foreach_statement     { $$ = $1; } /* For map */
+    | match_statement       { $$ = $1; }
+    | compound_statement    { $$ = $1; }
+    ;
+
+/* Reverted C-style for loop rule (again) */
+c_style_for_statement
+    : FOR '(' for_initializer expression_opt ';' expression_opt ')' statement {
+        /* Note: $3 (for_initializer) now includes the semicolon if it's a var_decl or expr */
+        $$ = create_c_style_for_node($3, $4, $6, $8);
+    }
+    ;
+
+/* Initializer for C-style for loop */
+for_initializer
+    : variable_declaration_body ';' { $$ = $1; } /* Use body + semicolon */
+    | expression_opt ';'            { $$ = $1; }
+    ;
+
+/* Optional expression (used for condition and incrementer) */
+expression_opt
+    : expression           { $$ = $1; }
+    | /* empty */          { $$ = NULL; }
     ;
 
 if_statement
-    : IF '(' expression ')' statement { $$ = create_if_node($3, $5, NULL); }
-    | IF '(' expression ')' statement ELSE statement { $$ = create_if_node($3, $5, $7); }
+    : IF '(' expression ')' statement %prec IF { $$ = create_if_node($3, $5, NULL); } // Apply IF precedence
+    | IF '(' expression ')' statement ELSE statement { $$ = create_if_node($3, $5, $7); } // ELSE has higher precedence implicitly
+    ;
+
+while_statement
+    : WHILE '(' expression ')' statement { $$ = create_while_node($3, $5); }
     ;
 
 match_statement
@@ -198,9 +264,10 @@ match_case
     | '_' ARROW statement { $$ = create_match_case(create_wildcard_node(), NULL, $3); }
     ;
 
-return_statement
-    : RETURN expression ';' { $$ = create_return_node($2); }
-    | RETURN ';' { $$ = create_return_node(NULL); }
+/* Renamed from return_statement, removed trailing ';' */
+return_statement_body
+    : RETURN expression { $$ = create_return_node($2); }
+    | RETURN            { $$ = create_return_node(NULL); }
     ;
 
 expression
@@ -269,7 +336,7 @@ expression
     | expression AND expression { $$ = create_binary_op_node(OP_AND, $1, $3); }
     | expression OR expression { $$ = create_binary_op_node(OP_OR, $1, $3); }
     | '!' expression { $$ = create_unary_op_node(OP_NOT, $2); }
-    | '-' expression { $$ = create_unary_op_node(OP_NEG, $2); }
+    | '-' expression %prec UMINUS { $$ = create_unary_op_node(OP_NEG, $2); } // Apply UMINUS precedence
     | IDENTIFIER '=' expression { $$ = create_assignment_node($1, $3); }
     | expression '.' IDENTIFIER { $$ = create_member_access_node($1, $3); }
     | SPREAD expression { $$ = create_spread_node($2); }
@@ -291,6 +358,7 @@ struct_init_field
 
 function_call
     : IDENTIFIER '(' argument_list ')' { $$ = create_function_call_node($1, $3); }
+    | PRINT '(' argument_list ')' { $$ = create_function_call_node("print", $3); }
     ;
 
 argument_list
@@ -299,12 +367,62 @@ argument_list
     | argument_list ',' expression { append_expression($1, $3); $$ = $1; }
     ;
 
+/* Renamed to for_in_statement internally, handles range/array iteration */
+for_statement
+    : FOR '(' IDENTIFIER IN expression ')' statement { /* Optional type */
+        AST_Node* var_decl = create_parameter_node($3, NULL); /* Type is NULL initially */
+        $$ = create_for_in_node(var_decl, $5, $7);
+    }
+    | FOR '(' IDENTIFIER ':' type IN expression ')' statement { /* Explicit type */
+        AST_Node* var_decl = create_parameter_node($3, $5);
+        $$ = create_for_in_node(var_decl, $7, $9);
+    }
+    | FOR '(' IDENTIFIER IN range_expression ')' statement { /* Optional type for range */
+        AST_Node* var_decl = create_parameter_node($3, NULL);
+        $$ = create_for_in_node(var_decl, $5, $7);
+    }
+    | FOR '(' IDENTIFIER ':' type IN range_expression ')' statement { /* Explicit type for range */
+        AST_Node* var_decl = create_parameter_node($3, $5);
+        $$ = create_for_in_node(var_decl, $7, $9);
+    }
+    ;
+
+/* Renamed to for_map_statement internally, handles map iteration */
+foreach_statement
+    : FOR '(' IDENTIFIER ',' IDENTIFIER IN expression ')' statement { /* Changed FOREACH to FOR */
+        AST_Node* key_var = create_parameter_node($3, NULL); /* Type is NULL initially */
+        AST_Node* value_var = create_parameter_node($5, NULL); /* Type is NULL initially */
+        $$ = create_for_map_node(key_var, value_var, $7, $9);
+    }
+    ;
+
+range_expression
+    : expression RANGE expression { $$ = create_range_node($1, $3); }
+    ;
+
 literal
     : INT_LITERAL { $$ = create_int_literal_node($1); }
     | FLOAT_LITERAL { $$ = create_float_literal_node($1); }
     | STRING_LITERAL { $$ = create_string_literal_node($1); }
     | BOOL_LITERAL { $$ = create_bool_literal_node($1); }
     | '[' array_elements ']' { $$ = create_array_literal_node($2); }
+    | map_literal { $$ = $1; }
+    ;
+
+map_literal
+    : '{' map_entries '}' { $$ = create_map_literal_node($2); } /* $2 is now node_list */
+    ;
+
+map_entries
+    : map_entry { $$ = create_node_list($1); } /* Changed create_expression_list to create_node_list */
+    | map_entries ',' map_entry { append_node($1, $3); $$ = $1; } /* Changed append_expression to append_node */
+    /* | / * empty * / { $$ = create_node_list(NULL); } */  /* Disallow completely empty map {} to resolve r/r conflict with empty block */
+    ;
+
+map_entry
+    : expression ':' expression { /* Changed key from STRING_LITERAL to expression */
+        $$ = create_map_entry_node($1, $3);
+    }
     ;
 
 array_elements

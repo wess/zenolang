@@ -1,0 +1,218 @@
+// Zeno is a simple, llvm based, compiled language that has no OOP, built in garbage collection.
+// It is a statically typed language with a syntax similar to C amd elixir.
+// It is designed to be easy to learn and use, with a focus on simplicity and readability.
+
+// Single line comment
+
+/* 
+Multi-line comment
+   This is a multi-line comment
+   that spans multiple lines.
+*/
+
+///////////////// VARIABLES
+
+let y:string = "Hello, World!"; // mutable variable with explicit type
+
+const w:string = "Hello, Universe!"; // immutable variable with explicit type
+
+let b:string[] = ["apple", "banana", "cherry"]; // mutable array with explicit type
+
+const d:string[] = ["dog", "cat", "mouse"]; // immutable array with explicit type
+
+let f:{ name: string, age: number } = { name: "Jane", age: 25 }; // mutable Hash with explicit type
+
+const h:{ name: string, age: number } = { name: "Bob", age: 35 }; // immutable Hash with explicit type
+
+let cd:string[] = [...b, ...d]; // spread operator to combine arrays
+let ef:{ name: string, age: number } = { ...f, city: "New York" }; // spread operator to combine hashes
+
+///////////////// STRUCTS
+
+// Base struct
+struct Entity {
+  id: string,
+  name: string
+}
+
+// Timestamps mixin
+struct Timestamps {
+  created_at: int,
+  updated_at: int
+}
+
+// User struct with composition
+struct User with Entity, Timestamps {
+  email: string,
+  active: bool
+}
+
+// Creating instances
+let user: User = {
+  id: "user-123",
+  name: "Alice",
+  email: "alice@example.com",
+  created_at: 1678234511,
+  updated_at: 1678234511
+};
+
+// With spread operator
+let base = {id: "user-123"};
+let timestamps = {created_at: 1678234511, updated_at: 1678234511};
+let user = {
+  ...base,
+  ...timestamps,
+  name: "Alice",
+  email: "alice@example.com"
+};
+
+///////////////// FUNCTIONS
+
+// Basic function
+fn add(a: int, b: int): int {
+  return a + b;
+}
+
+// Arrow function for expressions
+fn multiply(a: int, b: int): int => a * b;
+
+// Anonymous function (lambda)
+let square = (x: int): int => x * x;
+
+// Using an anonymous function
+let result = square(5); // Returns 25
+
+// Function with guard clause
+fn factorial(n: int): int where n > 0 {
+  return n * factorial(n - 1);
+}
+
+fn factorial(n: int): int where n == 0 {
+  return 1;
+}
+
+const eiaf = (a: number, b: number): number => a + b; // immutable function with explicit return type
+
+
+const imlf = (x:int):string => { // immutable multiline function with explicit return type
+    if (x > 0) {
+        return "Positive";
+    } else if (x < 0) {
+        return "Negative";
+    } else {
+        return "Zero";
+    }
+}
+
+// Async function
+async fn fetchData(url: string): string {
+  let response = await fetch(url);
+  let data = await response.text();
+  return data;
+}
+
+// Async Anonymous function
+let asyncFetchData = async (url: string): string => {
+  let response = await fetch(url);
+  let data = await response.text();
+  return data;
+}
+
+// calling async function
+  fetchData("https://example.com/api/data");
+  |> then((data) => {
+    printf("Data fetched: %s\n", data);
+  })
+  |> catch((error) => {
+    printf("Error fetching data: %s\n", error);
+  });
+
+// Using async function with await in an async context
+async fn main() {
+  let data = await fetchData("https://example.com/api/data");
+  printf("Data fetched: %s\n", data);
+}
+
+
+///////////////// Pattern Matching
+
+match value {
+  0 => printf("Zero\n"),
+  n: int where n > 0 => printf("Positive: %d\n", n),
+  n: int where n < 0 => printf("Negative: %d\n", n),
+  n: int where n % 2 == 0 => {
+    printf("Here: %d\n", n);
+    printf("Even: %d\n", n);
+  },
+  "hello" => printf("Greeting\n"),
+  _ => printf("Something else\n")
+}
+
+///////////////// Pipe Operator
+
+// The pipe operator (|>) allows you to chain function calls in a more readable way
+
+// Instead of nested function calls
+let result = format(process(parse(data)));
+
+// Use the pipe operator
+let result = data |> parse |> process |> format;
+
+///////////////// For / ForEach Loop
+
+// For loop
+for i in 0..10 {
+  printf("%d\n", i);
+}
+
+let zzz:string[] = ["apple", "banana", "cherry"]; // mutable array with explicit type
+
+for i in zzz.length {
+  printf("%s\n", zzz[i]);
+}
+
+// ForEach loop (array)
+let aaa:string[] = ["apple", "banana", "cherry"]; // mutable array with explicit type
+
+for a in aaa {
+  printf("%s\n", item);
+}
+
+// ForEach loop with Hash  
+let fff:{ name: string, age: number } = { name: "Jane", age: 25 }; // mutable Hash with explicit type
+
+for {key, value} in fff {
+  printf("%s: %s\n", key, value);
+}
+
+//////////// SCOPE AND IMPORTING FILES
+// variables, functions, structs, etc.. are all private to the file they are defined in unless prefixed with `public` then when a file is imported `public` identified items can be used.
+// An imported file is evaluated before the current file, so any public items in the imported file are available in the current file.
+
+/* file_a.zn */
+let x:string = "hello world";
+
+public let y:string = "goodbye world";
+public let z:string = "goodbye world";
+
+// importing files
+
+import { y } from "/path/to/file.zn"; // import file_a.zn and expose x and y;
+
+import {
+  y,
+  z
+} from "/path/to/file.zn"; // import file_a.zn and expose x and y;
+
+printf("%s\n", y); // prints "goodbye world"
+printf("%s\n", z); // prints "goodbye world"
+
+/*
+Example Main
+*/
+
+async fn main() {
+  // Call the async function
+  let data = await fetchData("https://example.com/api/data");
+  printf("Data fetched: %s\n", data);
+}

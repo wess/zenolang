@@ -1,0 +1,13 @@
+// Example demonstrating map type and literal syntax
+
+fn main() {
+    const myMap: map<string, string> = {"name": "Zeno", "version": "0.1"};
+    const anotherMap: map<string, int> = {"one": 1, "two": 2};
+
+    // Note: Map access (myMap["name"]) and iteration are not yet implemented
+    // in the parser or code generator. This example only tests declaration
+    // and literal creation.
+    print("Map example created successfully (compilation test only).\\n");
+}
+
+main();

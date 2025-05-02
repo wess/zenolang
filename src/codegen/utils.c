@@ -57,8 +57,12 @@ char* get_c_type(TypeInfo* type) {
         sprintf(array_type, "%s*", inner_type);
         free(inner_type);
         return array_type;
+    } else if (strcmp(type->name, "map") == 0) {
+        // Placeholder for map type - use void* for now
+        // TODO: Replace with actual map type (e.g., from a hashmap library)
+        return strdup("void*");
     } else {
-        // For custom types, use struct prefix
+        // For custom types (structs), use struct prefix
         char* struct_type = (char*)malloc(strlen(type->name) + 8);
         sprintf(struct_type, "struct %s", type->name);
         return struct_type;

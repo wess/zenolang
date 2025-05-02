@@ -280,6 +280,79 @@ AST_Node* create_await_expression_node(AST_Node* promise) {
     return node;
 }
 
+// Create C-style for loop node
+AST_Node* create_c_style_for_node(AST_Node* initializer, AST_Node* condition, AST_Node* incrementer, AST_Node* body) {
+    AST_Node* node = allocate_node(NODE_C_STYLE_FOR);
+    node->data.c_style_for.initializer = initializer;
+    node->data.c_style_for.condition = condition;
+    node->data.c_style_for.incrementer = incrementer;
+    node->data.c_style_for.body = body;
+    return node;
+}
+
+// Create for..in loop node (range/array)
+AST_Node* create_for_in_node(AST_Node* variable, AST_Node* iterable, AST_Node* body) { // Renamed function and params
+    AST_Node* node = allocate_node(NODE_FOR_IN); // Renamed node type
+    node->data.for_in.variable = variable;
+    node->data.for_in.iterable = iterable; // Renamed field
+    node->data.for_in.body = body;
+    return node;
+}
+
+// Create for..in loop node (map)
+AST_Node* create_for_map_node(AST_Node* key_var, AST_Node* value_var, AST_Node* map_expr, AST_Node* body) { // Renamed function and params
+    AST_Node* node = allocate_node(NODE_FOR_MAP); // Renamed node type
+    node->data.for_map.key_var = key_var;
+    node->data.for_map.value_var = value_var;
+    node->data.for_map.map_expr = map_expr; // Renamed field
+    node->data.for_map.body = body;
+    return node;
+}
+
+// Create range expression node
+AST_Node* create_range_node(AST_Node* start, AST_Node* end) {
+    AST_Node* node = allocate_node(NODE_RANGE);
+    node->data.range.start = start;
+    node->data.range.end = end;
+    return node;
+}
+
+// Create while statement node
+AST_Node* create_while_node(AST_Node* condition, AST_Node* body) {
+    AST_Node* node = allocate_node(NODE_WHILE_STATEMENT);
+    node->data.while_statement.condition = condition;
+    node->data.while_statement.body = body;
+    return node;
+}
+
+// Create map type info
+TypeInfo* create_map_type_info(TypeInfo* key_type, TypeInfo* value_type) {
+    TypeInfo* type = (TypeInfo*)malloc(sizeof(TypeInfo));
+    if (!type) {
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(1);
+    }
+    type->name = strdup("map"); // Map type name
+    type->generic_type = key_type; // Key type
+    type->value_type = value_type; // Value type
+    return type;
+}
+
+// Create map literal node
+AST_Node* create_map_literal_node(AST_Node_List* entries) { // Changed param type
+    AST_Node* node = allocate_node(NODE_MAP_LITERAL);
+    node->data.map_literal.entries = entries;
+    return node;
+}
+
+// Create map entry node
+AST_Node* create_map_entry_node(AST_Node* key, AST_Node* value) { // Changed key param type
+    AST_Node* node = allocate_node(NODE_MAP_ENTRY);
+    node->data.map_entry.key = key;
+    node->data.map_entry.value = value;
+    return node;
+}
+
 // Create node list
 AST_Node_List* create_node_list(AST_Node* node) {
     AST_Node_List* list = (AST_Node_List*)malloc(sizeof(AST_Node_List));
@@ -354,6 +427,7 @@ TypeInfo* create_type_info(char* name, TypeInfo* generic_type) {
     }
     type->name = name;
     type->generic_type = generic_type;
+    type->value_type = NULL; // Initialize value_type for non-map types
     return type;
 }
 
@@ -480,6 +554,41 @@ void free_ast(AST_Node* node) {
             break;
         case NODE_AWAIT_EXPRESSION:
             if (node->data.await_expr.promise) free_ast(node->data.await_expr.promise);
+            break;
+        case NODE_C_STYLE_FOR: // Added case for C-style for
+            if (node->data.c_style_for.initializer) free_ast(node->data.c_style_for.initializer);
+            if (node->data.c_style_for.condition) free_ast(node->data.c_style_for.condition);
+            if (node->data.c_style_for.incrementer) free_ast(node->data.c_style_for.incrementer);
+            if (node->data.c_style_for.body) free_ast(node->data.c_style_for.body);
+            break;
+        case NODE_FOR_IN: // Renamed from NODE_FOR_LOOP
+            if (node->data.for_in.variable) free_ast(node->data.for_in.variable);
+            if (node->data.for_in.iterable) free_ast(node->data.for_in.iterable); // Renamed field
+            if (node->data.for_in.body) free_ast(node->data.for_in.body);
+            break;
+        case NODE_FOR_MAP: // Renamed from NODE_FOREACH_LOOP
+            if (node->data.for_map.key_var) free_ast(node->data.for_map.key_var);
+            if (node->data.for_map.value_var) free_ast(node->data.for_map.value_var);
+            if (node->data.for_map.map_expr) free_ast(node->data.for_map.map_expr); // Renamed field
+            if (node->data.for_map.body) free_ast(node->data.for_map.body);
+            break;
+        case NODE_RANGE:
+            if (node->data.range.start) free_ast(node->data.range.start);
+            if (node->data.range.end) free_ast(node->data.range.end);
+            break;
+        case NODE_MAP_LITERAL:
+            if (node->data.map_literal.entries) {
+                AST_Node* entry_node = node->data.map_literal.entries->head; // Start from head of AST_Node_List
+                while (entry_node) {
+                    AST_Node* next_node = entry_node->next; // Get next node before freeing current
+                    free_ast(entry_node); // Free the map entry node itself
+                    entry_node = next_node;
+                }
+            }
+            break;
+        case NODE_MAP_ENTRY:
+            if (node->data.map_entry.key) free_ast(node->data.map_entry.key); // Changed free to free_ast
+            if (node->data.map_entry.value) free_ast(node->data.map_entry.value);
             break;
         case NODE_FUNCTION:
             if (node->data.function.name) free(node->data.function.name);
@@ -665,6 +774,10 @@ void free_ast(AST_Node* node) {
             if (node->data.anon_function.body) {
                 free_ast(node->data.anon_function.body);
             }
+            break;
+        case NODE_WHILE_STATEMENT:
+            if (node->data.while_statement.condition) free_ast(node->data.while_statement.condition);
+            if (node->data.while_statement.body) free_ast(node->data.while_statement.body);
             break;
         case NODE_EXPRESSION:
             // Generic expression, no special handling needed

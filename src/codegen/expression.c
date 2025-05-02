@@ -255,6 +255,76 @@ void generate_expression(CodeGenContext* ctx, AST_Node* node) {
             break;
         }
             
+        case NODE_LITERAL_ARRAY: {
+            // Generate array literal
+            fprintf(ctx->output, "((int[]){");
+            
+            // Generate array elements
+            ExpressionList* elem_list = node->data.function_call.arguments;
+            int first_elem = 1;
+            
+            while (elem_list) {
+                if (!first_elem) {
+                    fprintf(ctx->output, ", ");
+                }
+                
+                generate_expression(ctx, elem_list->expression);
+                first_elem = 0;
+                elem_list = elem_list->next;
+            }
+            
+            fprintf(ctx->output, "})");
+            break;
+        }
+        
+        case NODE_MAP_ENTRY: {
+            // Output key-value pair for map entries
+            fprintf(ctx->output, "{.key = ");
+            
+            // Output the key expression
+            generate_expression(ctx, node->data.map_entry.key); // Changed from direct string output
+            fprintf(ctx->output, ", ");
+            
+            // Output the value
+            fprintf(ctx->output, ".value = (void*)(intptr_t)"); // Keeping void* cast for now
+            generate_expression(ctx, node->data.map_entry.value);
+            fprintf(ctx->output, "}");
+            break;
+        }
+
+        case NODE_MAP_LITERAL: {
+            // Create a struct-based map representation
+            // TODO: This assumes keys are strings/char*, which might not be true after AST change.
+            // Needs a more robust map implementation later.
+            fprintf(ctx->output, "((struct { void* key; void* value; }[]){\n"); // Changed key type to void*
+            
+            // Generate map entries from AST_Node_List
+            AST_Node* current_entry_node = node->data.map_literal.entries ? node->data.map_literal.entries->head : NULL;
+            int first_entry = 1;
+            
+            while (current_entry_node) {
+                if (current_entry_node->type == NODE_MAP_ENTRY) { // Ensure it's a map entry
+                    if (!first_entry) {
+                        fprintf(ctx->output, ",\n");
+                    }
+                    fprintf(ctx->output, "    ");
+                    // Generate the map entry (which handles key and value)
+                    generate_expression(ctx, current_entry_node);
+                    first_entry = 0;
+                }
+                current_entry_node = current_entry_node->next;
+            }
+            
+            fprintf(ctx->output, "\n})"); // TODO: Need size info for the array
+            break;
+        }
+            
+        case NODE_RANGE: {
+            // Output the start of the range (simplified implementation)
+            generate_expression(ctx, node->data.range.start);
+            break;
+        }
+            
         default:
             // Unhandled expression type
             fprintf(ctx->output, "/* Unsupported expression */");

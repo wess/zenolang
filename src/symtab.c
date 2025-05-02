@@ -62,7 +62,7 @@ void leave_scope(SymbolTable* table) {
 }
 
 // Add symbol to current scope
-void add_symbol(SymbolTable* table, char* name, SymbolType type) {
+void add_symbol(SymbolTable* table, char* name, SymbolType type, TypeInfo* type_info) { // Added type_info parameter
     if (!table || !table->current_scope || !name) return;
     
     // Check if symbol already exists in current scope
@@ -84,6 +84,7 @@ void add_symbol(SymbolTable* table, char* name, SymbolType type) {
     
     new_entry->name = strdup(name);
     new_entry->type = type;
+    new_entry->type_info = type_info; // Store the type info
     new_entry->next = table->current_scope->entries;
     table->current_scope->entries = new_entry;
 }

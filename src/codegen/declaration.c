@@ -168,8 +168,8 @@ void generate_function(CodeGenContext* ctx, AST_Node* node) {
     // Start function declaration
     fprintf(ctx->output, "%s %s(", return_type, node->data.function.name);
     
-    // Add function to symbol table
-    add_symbol(ctx->symtab, node->data.function.name, SYMBOL_FUNCTION);
+    // Add function to symbol table (pass NULL for type_info)
+    add_symbol(ctx->symtab, node->data.function.name, SYMBOL_FUNCTION, NULL); 
     
     // Create new scope for parameters
     enter_scope(ctx->symtab);
@@ -186,8 +186,8 @@ void generate_function(CodeGenContext* ctx, AST_Node* node) {
         char* param_type = get_c_type(param->data.variable.type);
         fprintf(ctx->output, "%s %s", param_type, param->data.variable.name);
         
-        // Add parameter to symbol table
-        add_symbol(ctx->symtab, param->data.variable.name, SYMBOL_VARIABLE);
+        // Add parameter to symbol table, passing the TypeInfo
+        add_symbol(ctx->symtab, param->data.variable.name, SYMBOL_VARIABLE, param->data.variable.type); 
         
         free(param_type);
         first_param = 0;
@@ -361,8 +361,8 @@ void generate_variable(CodeGenContext* ctx, AST_Node* node) {
         fprintf(ctx->output, "%s %s", var_type, node->data.variable.name);
     }
     
-    // Add variable to symbol table
-    add_symbol(ctx->symtab, node->data.variable.name, SYMBOL_VARIABLE);
+    // Add variable to symbol table, passing the TypeInfo
+    add_symbol(ctx->symtab, node->data.variable.name, SYMBOL_VARIABLE, node->data.variable.type); 
     
     // Generate initializer if present
     if (node->data.variable.initializer) {
@@ -388,8 +388,8 @@ void generate_struct(CodeGenContext* ctx, AST_Node* node) {
     // Generate struct declaration
     fprintf(ctx->output, "struct %s {\n", node->data.struct_decl.name);
     
-    // Add struct to symbol table
-    add_symbol(ctx->symtab, node->data.struct_decl.name, SYMBOL_STRUCT);
+    // Add struct to symbol table (pass NULL for type_info)
+    add_symbol(ctx->symtab, node->data.struct_decl.name, SYMBOL_STRUCT, NULL); 
     
     increase_indent(ctx);
     
@@ -466,8 +466,8 @@ void generate_type_declaration(CodeGenContext* ctx, AST_Node* node) {
     fprintf(ctx->output, "// Type alias: %s -> %s\n", type_name, base_type);
     fprintf(ctx->output, "typedef %s %s;\n\n", base_type, type_name);
     
-    // Add type to symbol table
-    add_symbol(ctx->symtab, type_name, SYMBOL_TYPE);
+    // Add type to symbol table (pass the base TypeInfo)
+    add_symbol(ctx->symtab, type_name, SYMBOL_TYPE, node->data.type_decl.type); 
     
     free(base_type);
 }

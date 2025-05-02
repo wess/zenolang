@@ -43,6 +43,18 @@ void generate_code(CodeGenContext* ctx, AST_Node* node) {
         case NODE_COMPOUND_STATEMENT:
             generate_compound_statement(ctx, node);
             break;
+        case NODE_C_STYLE_FOR: // Added case
+            generate_c_style_for_statement(ctx, node);
+            break;
+        case NODE_FOR_IN: // Renamed case and function call
+            generate_for_in_statement(ctx, node);
+            break;
+        case NODE_FOR_MAP: // Renamed case and function call
+            generate_for_map_statement(ctx, node);
+            break;
+        case NODE_WHILE_STATEMENT:
+            generate_while_statement(ctx, node);
+            break;
         default:
             generate_expression(ctx, node);
             fprintf(ctx->output, ";\n");

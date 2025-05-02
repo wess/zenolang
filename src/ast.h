@@ -35,7 +35,14 @@ typedef enum {
     NODE_PROMISE_CATCH,
     NODE_PROMISE_FINALLY,
     NODE_PROMISE_ALL,
-    NODE_AWAIT_EXPRESSION
+    NODE_AWAIT_EXPRESSION,
+    NODE_C_STYLE_FOR,     /* Added for C-style for loops */
+    NODE_FOR_IN,          /* Renamed from NODE_FOR_LOOP (range/array) */
+    NODE_FOR_MAP,         /* Renamed from NODE_FOREACH_LOOP (map) */
+    NODE_RANGE,
+    NODE_MAP_LITERAL,
+    NODE_MAP_ENTRY,
+    NODE_WHILE_STATEMENT
 } NodeType;
 
 // Variable types
@@ -82,7 +89,8 @@ typedef struct MatchCase_List MatchCase_List;
 // Type information
 struct TypeInfo {
     char* name;
-    TypeInfo* generic_type; // For types like array<int>
+    TypeInfo* generic_type; // For types like array<int>, or key_type for map<key, value>
+    TypeInfo* value_type;   // For value_type for map<key, value>
 };
 
 // Struct field
@@ -297,6 +305,52 @@ struct AST_Node {
         struct {
             AST_Node* promise;
         } await_expr;
+
+        // C-style For loop (NODE_C_STYLE_FOR)
+        struct {
+            AST_Node* initializer;
+            AST_Node* condition;
+            AST_Node* incrementer;
+            AST_Node* body;
+        } c_style_for;
+
+        // For..in loop (NODE_FOR_IN) - for arrays and ranges
+        struct {
+            AST_Node* variable;     // Loop variable declaration (parameter node)
+            AST_Node* iterable;     // Collection or range expression
+            AST_Node* body;         // Loop body
+        } for_in;
+
+        // For..in loop (NODE_FOR_MAP) - for maps
+        struct {
+            AST_Node* key_var;      // Key variable (parameter node)
+            AST_Node* value_var;    // Value variable (parameter node)
+            AST_Node* map_expr;     // Map expression to iterate over
+            AST_Node* body;         // Loop body
+        } for_map;
+
+        // Range expression (NODE_RANGE)
+        struct {
+            AST_Node* start;
+            AST_Node* end;
+        } range;
+        
+        // Map literal
+        struct {
+            AST_Node_List* entries; // Changed from ExpressionList*
+        } map_literal;
+        
+        // Map entry
+        struct {
+            AST_Node* key;          // Key expression (changed from char*)
+            AST_Node* value;        // Value expression
+        } map_entry;
+
+        // While statement
+        struct {
+            AST_Node* condition;
+            AST_Node* body;
+        } while_statement;
     } data;
 };
 
@@ -337,6 +391,18 @@ AST_Node* create_promise_catch_node(AST_Node* promise, AST_Node* handler);
 AST_Node* create_promise_finally_node(AST_Node* promise, AST_Node* handler);
 AST_Node* create_promise_all_node(ExpressionList* promises);
 AST_Node* create_await_expression_node(AST_Node* promise);
+
+// Loop-related node creation
+AST_Node* create_c_style_for_node(AST_Node* initializer, AST_Node* condition, AST_Node* incrementer, AST_Node* body); // Added
+AST_Node* create_for_in_node(AST_Node* variable, AST_Node* iterable, AST_Node* body); // Renamed from create_for_node
+AST_Node* create_for_map_node(AST_Node* key_var, AST_Node* value_var, AST_Node* map_expr, AST_Node* body); // Renamed from create_foreach_node
+AST_Node* create_range_node(AST_Node* start, AST_Node* end);
+AST_Node* create_while_node(AST_Node* condition, AST_Node* body);
+
+// Map-related node creation
+TypeInfo* create_map_type_info(TypeInfo* key_type, TypeInfo* value_type); // Added
+AST_Node* create_map_literal_node(AST_Node_List* entries); // Changed param type
+AST_Node* create_map_entry_node(AST_Node* key, AST_Node* value); // Changed key param type
 
 // Helper functions
 AST_Node_List* create_node_list(AST_Node* node);
